@@ -1,1451 +1,649 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <limits.h>
 
-#define slots_of_course 6
+#define NUM_SLOTS 5
+#define NUM_ROWS 4
+#define SEATS_PER_BENCH 3
 
+typedef struct Student
+{
+    char name[50];
+    char enrollment_number[20];
+    char courses[10][20];
+    int slots[NUM_SLOTS];
+    struct Student *next;
+} Student;
 
-
-// course(1)= DSPD2 (1);
-// course(2)= LA (2);
-// course(3)= IOOM (3);
-// course(4)= CPL (4);
-// course(5)= CO (5);
-// course(6)= DCMP (6);
-// course(7)= PTSM (2);
-// course(8)= TC (4);
-
-// slot(1) = 10:00 AM - 11:00 AM
-// slot(2) = 11:00 AM - 12:00 AM
-// slot(3) = 12:00 PM - 01:00 PM
-// LUNCH   = 01:00 PM - 02:00 PM
-// slot(4) = 02:00 PM - 03:00 PM
-// slot(5) = 03:00 PM - 04:00 PM
-// slot(6) = 04:00 PM - 05:00 PM
-
-int Num_courses = 0;
-int Num_classrooms = 0;
-
-struct student
+typedef struct Course
 {
     char name[20];
-    int En_num;
-    int courses[5];
-    int roomNum;
-    int RowNum;
-    int BenchNum;
-    int attribute;
-    struct student *next;
-};
-
-struct courses
-{
-    char Cname[20];
-    int Cnum;
     int slot;
-    int NumStudents;
-    int lecture_room;
-    int RoomNum;
-    struct student *headstudent;
-    struct courses *next;
-};
+    int num_students;
+    char courses_room[10];
+    struct Student *students;
+} Course;
 
-struct classrooms
+Course courses[] = {
+    {"P", 1},
+    {"C", 2},
+    {"M", 3},
+    {"DM", 3},
+    {"B", 4},
+    {"CS", 5},
+    {"DSPD1", 6}
+   
+    };
+
+int num_courses = sizeof(courses) / sizeof(Course);
+
+typedef struct classroom
 {
-    int roomNum;
+    char room_number[10];
     int capacity;
-    int seatOccupied;
-    int seatNum;
-    int seating[10][12];
-    struct courses *C;
-    struct courses *CL;
-    struct classrooms *next;
+    int benches_per_row;
+    int slots[NUM_SLOTS];
+    Student *students;
+} classroom;
+
+classroom classrooms[] = {
+    {"C101", 5},
+    {"C102", 2},
+    {"C103", 4},
+    {"C104", 20},
+    {"C105", 3},
 };
 
-void addcourse(struct courses **first, char *Cname, int CNum, int SlotNum) // to update a new course
+Student *student_list = NULL;
+ 
+int get_slot(char *course_name)
 {
-    // Insert new item at start.
-
-    struct courses *newest = (struct courses *)malloc(sizeof(struct courses));
-    newest->Cnum = CNum;
-    newest->slot = SlotNum;
-    strcpy(newest->Cname, Cname);
-    newest->NumStudents = 0;
-    newest->headstudent = NULL;
-    newest->next = *first;
-    *first = newest;
-
-    Num_courses++;
+    for (int i = 0; i < num_courses; i++)
+    {
+        if (strcmp(course_name, courses[i].name) == 0)
+        {
+            return courses[i].slot;
+        }
+    }
+    return -1;
 }
 
-void addstudent(struct courses *first, int rollno, char *name) // to update student info in newly made linked list
+int check_slot(int slots[], int slot)
 {
-    struct student *newest = (struct student *)malloc(sizeof(struct student));
-    struct courses *ptr = first;
-    // strcpy(newest->name,name);
-    newest->En_num = rollno;
-    newest->roomNum = 0;
-    newest->BenchNum = 0;
-    newest->RowNum = 0;
-    strcpy(newest->name, name);
-    ptr->NumStudents++;
-
-    newest->next = first->headstudent;
-    first->headstudent = newest;
+    for (int i = 0; i < 5; i++)
+    {
+        if (slots[i] == slot)
+        {
+            return 1;
+        }
+    }
+    return 0;
 }
 
-struct courses *deleteStudent(struct courses *first, int EnNum)
+void add_student()
 {
-    struct courses *p = first;
-    while (p != NULL)
+    
+    FILE* ptr = fopen("student_read.txt", "r");
+
+    char name[50];
+    char enrol[20];
+    char s1[20];
+    char s2[20];
+    char s3[20];
+    char s4[20];
+    char s5[20];
+    while(fscanf(ptr,"%s %s %s %s %s %s %s\n",name,enrol,s1,s2,s3,s4,s5) != EOF)
     {
-        struct student *q = p->headstudent;
-        struct student *prev = NULL;
-        while (q != NULL)
+    Student *new_Student = (Student *)malloc(sizeof(Student));
+    memset(new_Student->name, 0, sizeof(new_Student->name));
+    memset(new_Student->enrollment_number, 0, sizeof(new_Student->enrollment_number));
+    for (int i = 0; i < num_courses; i++)
+    {
+        memset(new_Student->courses[i], 0, sizeof(new_Student->courses[i]));
+    }
+
+    strcpy(new_Student->name, name);
+    strcpy(new_Student->enrollment_number, enrol);
+    strcpy(new_Student->courses[0], s1);
+    strcpy(new_Student->courses[1], s2);
+    strcpy(new_Student->courses[2], s3);
+    strcpy(new_Student->courses[3], s4);
+    strcpy(new_Student->courses[4], s5);
+    
+   static int count2=1;
+    Student *current = student_list;
+    while (current != NULL)
+    {
+        if (strcmp(current->enrollment_number, new_Student->enrollment_number) == 0)
         {
-            if (q->En_num == EnNum)
-            {
-                if (prev == NULL)
-                {
-                    // Student to delete is the first student in the list
-                    p->headstudent = q->next;
-                }
-                else
-                {
-                    // Student to delete is not the first student in the list
-                    prev->next = q->next;
-                }
-                free(q);
-                p->NumStudents--; // Decrement course enrollment count
-                // return first;
-            }
-            prev = q;
-            q = q->next;
+            printf("Error: Enrollment No. %s already exists.\n", new_Student->enrollment_number);
+            return;
         }
-        p = p->next;
+        current = current->next;
     }
 
-    return first;
-}
-
-struct student *insertS(struct student *head, char *Sname, int EnNum, int *course, struct courses **firsts) // to update student info in linked list 1// as well as simultaneously updates students name in corresponding course taken by him.It returns the head pointer of linked list 1.
-{
-
-    struct student *NewS = (struct student *)malloc(sizeof(struct student));
-    struct student *ptr = head;
-    int i;
-    int slots[slots_of_course] = {0};
-
-    struct courses *ptr2 = *firsts;
-    NewS->En_num = EnNum;
-    NewS->roomNum = 0;
-    NewS->RowNum = 0;
-    NewS->BenchNum = 0;
-    strcpy(NewS->name, Sname);
-
-    for (i = 0; i < 5; i++)
+   
+    for (int i = 0; i < 5; i++)
     {
-        int k = course[i];
-        if (course[i] == k)
+        int slot = get_slot(new_Student->courses[i]);
+        if (slot == -1)
         {
-            if (ptr2->Cnum == k)
-            {
-                addstudent(ptr2, EnNum, Sname);
-            }
-            else
-            {
-                while (ptr2->Cnum != k)
-                {
-                    ptr2 = ptr2->next;
-                }
-                addstudent(ptr2, EnNum, Sname);
-                slots[ptr2->slot - 1]++;
-                ptr2 = *firsts;
-            }
+            printf("Error: Invalid course name.\n");
+            return;
         }
-    }
-
-    for (i = 0; i < slots_of_course; i++)
-    {
-        if (slots[i] > 1)
+        if (check_slot(new_Student->slots, slot))
         {
-            printf("%s cannot take two courses of same slot (%d)\n", Sname, i + 1);
-            exit(0);
+            printf("Error: Two courses cannot be assigned the same slot.\n");
+            return;
         }
+        new_Student->slots[i] = slot;
     }
-    for (i = 0; i < 5; i++)
+    new_Student->next = NULL;
+
+    Student *ptr = student_list;
+    Student *prev = NULL;
+    while (ptr != NULL && strcmp(ptr->enrollment_number, new_Student->enrollment_number) < 0)
     {
-        NewS->courses[i] = course[i]; // updates courses taken by student in News
-    }
-
-    if (ptr == NULL)
-    {
-        ptr = NewS;
-        NewS->next = NULL;
-        head = ptr;
-    }
-    else
-    {
-        struct student *lptr = ptr;
-        while (ptr->next != NULL)
-        {
-            ptr = ptr->next;
-        }
-        ptr->next = NewS;
-        NewS->next = NULL;
-        head = lptr;
-    }
-
-    return head;
-}
-
-struct student *deleteS(struct student *head, int EnNum, struct courses **first)
-{
-    struct student *p = head;
-
-    struct courses *ptr = *first;
-    if (p == NULL)
-    {
-        printf("No students to delete \n");
-        return head;
-    }
-
-    if (p->En_num == EnNum)
-    {
-        head = p->next;
-        free(p);
-        printf("Student with Enrollment no. %d is deleted \n", EnNum);
-    }
-    else
-    {
-        struct student *q = head->next;
-        while (q->En_num != EnNum && q->next!=NULL)
-        {
-            p = p->next;
-            q = q->next;
-        }
-        if(q->En_num!=EnNum)
-        {
-            printf("No student found with enrollment no. %d \n",EnNum);
-            printf("\n");
-            return head;
-        }
-        p->next = q->next;
-        free(q);
-        printf("Student with Enrollment no. %d is deleted \n", EnNum);
-        
-    }
-    ptr = deleteStudent(ptr, EnNum);
-    *first = ptr;
-    return head;
-}
-
-struct courses *deleteCourse(struct courses *head, int CNUM)
-{
-    struct courses *p = head;
-    struct courses *q = head->next;
-
-    if (p->Cnum == CNUM)
-    {
-        if (p->headstudent == NULL)
-        {
-            head = head->next;
-            free(p);
-            // return head;
-        }
-        else
-        {
-            printf("Cannot delete the course %d as some studentsa have opted for it\n", CNUM);
-            return head;
-        }
-    }
-    else
-    {
-        while (q->Cnum != CNUM && q != NULL)
-        {
-            p = p->next;
-            q = q->next;
-        }
-        if (q->Cnum == CNUM && q->headstudent == NULL)
-        {
-            p->next = q->next;
-            free(q);
-            printf("Course %d is deleted \n",q->Cnum);
-        }
-        else if (q == NULL)
-        {
-            printf("this course does not exist");
-        }
-        else
-        {
-            printf("Cannot delete the course %d as some students have opted for it\n", CNUM);
-            return head;
-        }
-    }
-
-    return head;
-}
-
-void addClassroom(struct classrooms **first, int RNum, int BPR)
-{
-    struct classrooms *newC = (struct classrooms *)malloc(sizeof(struct classrooms));
-    newC->roomNum = RNum;
-    newC->capacity = (BPR)*12;
-    newC->C = NULL;
-    newC->seatOccupied = 0;
-    newC->seatNum = 0;
-    newC->next = *first;
-    *first = newC;
-
-    Num_classrooms++;
-}
-
-void printRooms(struct classrooms *currClass)
-{
-    struct classrooms *main = currClass ;
-    if (main == NULL)
-    {
-        printf("no classrooms");
-    }
-    else
-    {
-        while (main != NULL)
-        {
-            printf("Classroom no. %d having capacity %d and alloted courses: \n", main->roomNum, main->capacity);
-
-            struct courses *currCourse = main->CL;
-            if (currCourse == NULL)
-            {
-                printf("No course alloted \n");
-            }
-            else
-            {
-                while (currCourse != NULL)
-                {
-                    printf("Course no. %d - %s \n", currCourse->Cnum, currCourse->Cname);
-                    currCourse = currCourse->next;
-                }
-            }
-            main = main->next;
-            printf("\n");
-        }
-    }
-}
-
-void printall(struct courses *C)
-{
-    // For every child.
-    struct courses * currcourse = C;
-    if (currcourse == NULL)
-    {
-        printf("No data recorded yet");
-    }
-    else
-    {
-        while (currcourse != NULL)
-        {
-            printf("Course %s of slot %d is taken by:\n", currcourse->Cname, currcourse->slot);
-
-            // For every toy that child has.
-
-            struct student *currstu = currcourse->headstudent;
-            if (currstu == NULL)
-            {
-                printf("   <<nothing>>\n");
-            }
-            else
-            {
-                while (currstu != NULL)
-                {
-                    printf("%d  ", currstu->En_num);
-                    printf("%s \n", currstu->name);
-                    currstu = currstu->next;
-                }
-            }
-            currcourse = currcourse->next;
-            printf("\n");
-        }
-    }
-}
-
-void printStudentList(struct student *ptr)
-{
-    if (ptr == NULL)
-    {
-        printf("no student recorded");
-    }
-    else
-    {
-        while (ptr != NULL)
-        {
-            printf("%d  %s \n", ptr->En_num, ptr->name);
-            ptr = ptr->next;
-        }
-    }
-}
-
-void allotSeats(struct classrooms *first, struct courses **head)
-{
-    struct classrooms *ptr = first;
-    struct courses *sub = *head;
-    struct student *S = sub->headstudent;
-    while (ptr != NULL)
-    {
-        int BPR = (ptr->capacity) / 4;
-        int seating[4][BPR];
-        while ((ptr->capacity) / 4 > 0 && sub != NULL)
-        {
-            while (S != NULL)
-            {
-                S->roomNum = ptr->roomNum;
-                for (int i = 0; i < 4; i++)
-                {
-                    for (int j = 0; j < BPR; j++)
-                    {
-                        S->RowNum = i + 1;
-                        S->BenchNum = j + 1;
-                        ptr->capacity = ptr->capacity - 4;
-                    }
-                }
-                S = S->next;
-            }
-            sub = sub->next;
-        }
+        prev = ptr;
         ptr = ptr->next;
     }
-}
 
-void printSeatalloted(struct student *S)
-{
-    do
+    if (prev == NULL)
     {
-        printf("%s is alloted in classroom no. %d with bench no. %d and row no. %d \n", S->name, S->roomNum, S->BenchNum, S->RowNum);
-        S = S->next;
-    } while (S != NULL);
-}
-
-void allotRooms(struct courses *courseF, int numCourses, struct classrooms *roomF, int numRooms, int Slot)
-{
-    struct courses *course = courseF;
-    struct classrooms *room = roomF;
-
-    if (course->slot == Slot)
-    {
-        for (int j = 0; j < course->NumStudents; j++)
-        {
-            int S_Enum = course->headstudent->En_num;
-
-            int Cindex = -1;
-
-            int k = 0;
-
-            while (k < numRooms && room != NULL)
-            {
-                if (room->capacity - room->seatOccupied >= course->NumStudents)
-                {
-                    Cindex = k;
-                    break;
-                }
-                room = room->next;
-                k++;
-            }
-
-            if (Cindex != -1)
-            {
-                int seatNum = room->seatOccupied;
-
-                int x = 0;
-                while (x < course->NumStudents && room != NULL)
-                {
-                    if (course->headstudent->En_num == S_Enum)
-                    {
-                        room->seatNum = S_Enum;
-                    }
-                    x++;
-                    room = room->next;
-                }
-                room->seatOccupied = room->seatOccupied + course->NumStudents;
-            }
-            else
-            {
-                printf("Error: No classroom with enough capacity\n");
-            }
-        }
+        new_Student->next = student_list;
+        student_list = new_Student;
     }
     else
     {
-        int i = 0;
-        while (i < numCourses && course!=NULL)
+        new_Student->next = ptr;
+        prev->next = new_Student;
+    }
+    
+    if(count2==1)
+    {
+        printf("Student added successfully!\n");     
+    }
+    count2++;
+    }
+}
+
+void add_student_to_txt()
+{
+    FILE *fptr;
+    fptr = fopen("student_print_list.txt", "w");
+    if (fptr == NULL)
+    {
+        printf("Error opening file.");
+        return;
+    }
+
+    Student *current = student_list;
+    fprintf(fptr, "Name\tEnrollment Number\tCourses\t\tSlots\n");
+    while (current != NULL)
+    {
+        fprintf(fptr, "%s\t%s\t\t", current->name, current->enrollment_number);
+        for (int i = 0; i < num_courses; i++)
         {
-            for (int j = 0; j < course->NumStudents; j++)
+            fprintf(fptr, "%s ", current->courses[i]);
+        }
+        fprintf(fptr, "\t");
+        for (int i = 0; i < NUM_SLOTS; i++)
+        {
+            fprintf(fptr, "%d ", current->slots[i]);
+        }
+        fprintf(fptr, "\n");
+        current = current->next;
+    }
+
+    fclose(fptr);
+}
+
+void print_student_list()
+{
+    Student *current = student_list;
+    printf("Name\tEnrollment Number\tCourses\t\tSlots\n");
+    while (current != NULL)
+    {
+        printf("%s\t%s\t\t", current->name, current->enrollment_number);
+        for (int i = 0; i < num_courses; i++)
+        {
+            printf("%s ", current->courses[i]);
+        }
+        printf("\t");
+        for (int i = 0; i < NUM_SLOTS; i++)
+        {
+            printf("%d ", current->slots[i]);
+        }
+        printf("\n");
+        current = current->next;
+    }
+}
+
+void delete_student()
+{
+    char enrollment_number[20];
+    printf("Enter enrollment number of student to delete: ");
+    scanf("%s", enrollment_number);
+
+    Student *ptr = student_list;
+    Student *prev = NULL;
+
+    while (ptr != NULL && strcmp(ptr->enrollment_number, enrollment_number) != 0)
+    {
+        prev = ptr;
+        ptr = ptr->next;
+    }
+
+    if (ptr == NULL)
+    {
+        printf("Error: Student with enrollment number %s not found.\n", enrollment_number);
+        return;
+    }
+
+    if (prev == NULL)
+    {
+        student_list = ptr->next;
+    }
+    else
+    {
+        prev->next = ptr->next;
+    }
+
+    for (int i = 0; i < 5; i++)
+    {
+        Course *course = &courses[ptr->slots[i] - 1];
+        Student *current = course->students;
+        Student *prev = NULL;
+        while (current != NULL && strcmp(current->enrollment_number, enrollment_number) != 0)
+        {
+            prev = current;
+            current = current->next;
+        }
+        if (current != NULL)
+        {
+            if (prev == NULL)
             {
-                int S_Enum = course->headstudent->En_num;
+                course->students = current->next;
+            }
+            else
+            {
+                prev->next = current->next;
+            }
+        }
+    }
 
-                int Cindex = -1;
+    free(ptr);
 
-                int k = 0;
+    printf("Student with enrollment number %s deleted successfully!\n", enrollment_number);
+}
 
-                while (k < numRooms && room != NULL)
+void add_course()
+{
+    char name[20];
+    int slot;
+
+    printf("Enter course name: ");
+    scanf("%s", name);
+
+    printf("Enter slot number: ");
+    scanf("%d", &slot);
+
+    for (int i = 0; i < num_courses; i++)
+    {
+        if (strcmp(name, courses[i].name) == 0)
+        {
+            printf("Error: Course already exists.\n");
+            return;
+        }
+    }
+    num_courses++;
+
+    strcpy(courses[num_courses].name, name);
+    courses[num_courses].slot = slot;
+    courses[num_courses].students = NULL;
+
+    printf("Course added successfully!\n");
+}
+
+void delete_course()
+{
+    char name[20];
+
+    printf("Enter course name: ");
+    scanf("%s", name);
+
+    int course_index = -1;
+    for (int i = 0; i < num_courses; i++)
+    {
+        if (strcmp(name, courses[i].name) == 0)
+        {
+            course_index = i;
+            break;
+        }
+    }
+
+    if (course_index == -1)
+    {
+        printf("Error: Course not found.\n");
+        return;
+    }
+
+    Student *current = student_list;
+    while (current != NULL)
+    {
+        for (int i = 0; i < num_courses; i++)
+        {
+            if (strcmp(current->courses[i], name) == 0)
+            {
+                printf("Error: A student has taken this course.\n");
+                return;
+            }
+        }
+        current = current->next;
+    }
+
+    for (int i = course_index; i < num_courses - 1; i++)
+    {
+        strcpy(courses[i].name, courses[i + 1].name);
+        courses[i].slot = courses[i + 1].slot;
+        courses[i].num_students = courses[i + 1].num_students;
+        strcpy(courses[i].courses_room, courses[i + 1].courses_room);
+        courses[i].students = courses[i + 1].students;
+    }
+    num_courses--;
+
+    printf("Course deleted successfully!\n");
+}
+
+void print_course_list()
+{
+    printf("Course List:\n");
+    for (int i = 0; i < num_courses; i++)
+    {
+        // if (courses[i].slot != 0)
+            printf("%s (slot %d)\n", courses[i].name, courses[i].slot);
+    }
+}
+
+int count_students_in_course(char *course_name)
+{
+    int count = 0;
+    for (int i = 0; i < num_courses; i++)
+    {
+        if (strcmp(course_name, courses[i].name) == 0)
+        {
+            Student *current_student = student_list;
+            while (current_student != NULL)
+            {
+                for (int j = 0; j < 5; j++)
                 {
-                    if (room->capacity - room->seatOccupied >= course->NumStudents)
+                    if (strcmp(current_student->courses[j], course_name) == 0)
                     {
-                        Cindex = k;
+                        count++;
                         break;
                     }
-                    room = room->next;
-                    k++;
+                }
+                current_student = current_student->next;
+            }
+            break;
+        }
+    }
+    return count;
+}
+
+void allot_classrooms()
+{
+    for (int i = 0; i < num_courses - 1; i++)
+    {
+        courses[i].num_students = count_students_in_course(courses[i].name);
+        for (int j = i + 1; j < num_courses; j++)
+        {
+            if (courses[i].slot > courses[j].slot ||
+                (courses[i].slot == courses[j].slot &&
+                 courses[i].num_students > courses[j].num_students) ||
+                (courses[i].slot == courses[j].slot &&
+                 courses[i].num_students == courses[j].num_students &&
+                 strcmp(courses[i].name, courses[j].name) > 0))
+            {
+                Course temp = courses[i];
+                courses[i] = courses[j];
+                courses[j] = temp;
+            }
+        }
+    }
+
+    int num_classrooms = sizeof(classrooms) / sizeof(classroom);
+    for (int i = 0; i < num_classrooms - 1; i++)
+    {
+        for (int j = i + 1; j < num_classrooms; j++)
+        {
+            if (classrooms[j].capacity > classrooms[i].capacity ||
+                (classrooms[j].capacity == classrooms[i].capacity &&
+                 strcmp(classrooms[j].room_number, classrooms[i].room_number) < 0))
+            {
+                classroom temp = classrooms[j];
+                classrooms[j] = classrooms[i];
+                classrooms[i] = temp;
+            }
+        }
+    }
+
+    for (int i = 0; i < num_courses; i++)
+    {
+        courses[i].num_students = count_students_in_course(courses[i].name);
+
+        if (courses[i].num_students == 0)
+        {
+            printf("Cannot allot classroom for %s (slot %d) as no one registered for it\n", courses[i].name, courses[i].slot);
+            continue;
+        }
+
+        for (int j = 0; j < num_classrooms; j++)
+        {
+            if (classrooms[j].capacity >= courses[i].num_students)
+            {
+                for (int k = i - 1; k >= 0 && courses[k].slot == courses[i].slot; k--)
+                {
+                    if (strcmp(courses[k].name, courses[i].name) != 0)
+                    {
+                        j++;
+                        break;
+                    }
                 }
 
-                if (Cindex != -1)
-                {
-                    int seatNum = room->seatOccupied;
+                strcpy(courses[i].courses_room, classrooms[j].room_number);
+                classrooms[j].slots[i] = courses[i].slot;
+                printf("Room alloted %s for %s(Slot %d)\n", classrooms[j].room_number, courses[i].name, courses[i].slot);
+               
+                break;
+            }
+        }
+    }
 
-                    int x = 0;
-                    while (x < course->NumStudents && room != NULL)
+    for (int slot = 1; slot <= NUM_SLOTS; slot++) 
+    {
+        int num_courses_in_slot = 0;                   
+        int total_students_in_slot = 0;                
+        int min_num_courses_without_room = INT_MAX;    
+        int min_total_students_without_room = INT_MAX; 
+
+        for (int i = 0; i < num_courses; i++)
+        {
+            if (courses[i].slot == slot)
+            {
+                courses[i].num_students = count_students_in_course(courses[i].name);
+                total_students_in_slot += courses[i].num_students;
+                num_courses_in_slot++;
+
+                if (strcmp(courses[i].courses_room, "") == 0) 
+                {
+                    min_num_courses_without_room = fmin(min_num_courses_without_room, num_courses_in_slot);
+                    min_total_students_without_room = fmin(min_total_students_without_room, total_students_in_slot);
+                }
+            }
+        }
+
+        if (min_num_courses_without_room == INT_MAX) 
+        {
+            continue;
+        }
+
+    
+        for (int j = num_classrooms - 1; j >= 0; j--)
+        {
+            if (classrooms[j].capacity < min_total_students_without_room) // room is too small
+            {
+                break;
+            }
+
+   
+            for (int i = 0; i < num_courses; i++)
+            {
+                if (courses[i].slot == slot && strcmp(courses[i].courses_room, "") == 0)
+                {
+                    if (classrooms[j].capacity >= courses[i].num_students)
                     {
-                        if (course->headstudent->En_num == S_Enum)
+                        strcpy(courses[i].courses_room, classrooms[j].room_number);
+                        classrooms[j].slots[i] = courses[i].slot;
+                        printf("Room allotted %s for %s (Slot %d)\n", classrooms[j].room_number, courses[i].name, courses[i].slot);
+                        min_num_courses_without_room--;
+                        min_total_students_without_room -= courses[i].num_students;
+
+                        if (min_num_courses_without_room == 0 || min_total_students_without_room == 0)
                         {
-                            room->seatNum = S_Enum;
-                        }
-                        x++;
-                        room = room->next;
-                    }
-                    room->seatOccupied = room->seatOccupied + course->NumStudents;
-                }
-                else
-                {
-                    printf("Error: No classroom with enough capacity\n");
-                }
-            }
-            course=course->next;
-        }
-    }
-}
-
-struct classrooms *Insert_course_in_classroom(struct classrooms *cptr, struct courses *qptr)
-{
-    // struct classrooms*nptr=cptr;
-    struct courses *newest = (struct courses *)malloc(sizeof(struct courses));
-    newest->Cnum = qptr->Cnum;
-    strcpy(newest->Cname, qptr->Cname);
-    newest->NumStudents = qptr->NumStudents;
-    // newest->NumStudents = qptr->NumStudents;
-    newest->next = cptr->CL;
-    cptr->CL = newest;
-
-    return cptr;
-}
-
-struct classrooms *Insert_course_in_examroom(struct classrooms *cptr, struct courses *qptr)
-{
-    // struct classrooms*nptr=cptr;
-    struct courses *newest = (struct courses *)malloc(sizeof(struct courses));
-    newest->Cnum = qptr->Cnum;
-    strcpy(newest->Cname, qptr->Cname);
-    newest->NumStudents = qptr->NumStudents;
-    // newest->NumStudents = qptr->NumStudents;
-    newest->next = cptr->C;
-    cptr->C = newest;
-
-    return cptr;
-}
-
-void print_classrooms_for_lectures(struct classrooms *lptr)
-{
-    if (lptr == NULL)
-    {
-        printf("nothing");
-    }
-    else
-    {
-        while (lptr != NULL)
-        {
-            printf("classroom %d is alloted to :\n", lptr->roomNum);
-            struct courses *nptr = lptr->CL;
-            if (nptr == NULL)
-            {
-                printf("no courses alloted to this classroom");
-            }
-            else
-            {
-                while (nptr != NULL)
-                {
-                    printf("course number %d", nptr->Cnum);
-                    printf("course name %s\n", nptr->Cname);
-                }
-            }
-            lptr = lptr->next;
-            printf("\n");
-        }
-    }
-}
-
-struct courses *merge_course(struct courses *lptr, struct courses *nptr)
-{
-    struct courses *result, *ptr1, *ptr2, *tail;
-    ptr1 = lptr;
-    ptr2 = nptr;
-    if (ptr1->NumStudents > ptr2->NumStudents)
-    {
-        result = ptr1;
-        ptr1 = ptr1->next;
-    }
-    else
-    {
-        result = ptr2;
-        ptr2 = ptr2->next;
-    }
-    tail = result;
-    while (ptr1 != NULL && ptr2 != NULL)
-    {
-        if (ptr1->NumStudents > ptr2->NumStudents)
-        {
-            tail = tail->next = ptr1;
-            ptr1 = ptr1->next;
-        }
-        else
-        {
-            tail = tail->next = ptr2;
-            ptr2 = ptr2->next;
-        }
-    }
-    if (ptr1 != NULL)
-    {
-        tail->next = ptr1;
-    }
-    else
-    {
-        tail->next = ptr2;
-    }
-    return result;
-}
-
-struct courses *divide_course(struct courses *lptr)
-{
-    struct courses *fast, *slow, *nptr;
-    slow = lptr;
-    fast = lptr->next->next;
-    while (fast != NULL)
-    {
-        fast = fast->next;
-        slow = slow->next;
-        if (fast != NULL)
-        {
-            fast = fast->next;
-        }
-    }
-    nptr = slow->next;
-    slow->next = NULL;
-    return nptr;
-}
-
-struct classrooms *merge(struct classrooms *lptr, struct classrooms *nptr)
-{
-    struct classrooms *result, *ptr1, *ptr2, *tail;
-    ptr1 = lptr;
-    ptr2 = nptr;
-    if (ptr1->capacity > ptr2->capacity)
-    {
-        result = ptr1;
-        ptr1 = ptr1->next;
-    }
-    else
-    {
-        result = ptr2;
-        ptr2 = ptr2->next;
-    }
-    tail = result;
-    while (ptr1 != NULL && ptr2 != NULL)
-    {
-        if (ptr1->capacity > ptr2->capacity)
-        {
-            tail = tail->next = ptr1;
-            ptr1 = ptr1->next;
-        }
-        else
-        {
-            tail = tail->next = ptr2;
-            ptr2 = ptr2->next;
-        }
-    }
-    if (ptr1 != NULL)
-    {
-        tail->next = ptr1;
-    }
-    else
-    {
-        tail->next = ptr2;
-    }
-    return result;
-}
-
-struct classrooms *divide(struct classrooms *lptr)
-{
-    struct classrooms *fast, *slow, *nptr;
-    slow = lptr;
-    fast = lptr->next->next;
-    while (fast != NULL)
-    {
-        fast = fast->next;
-        slow = slow->next;
-        if (fast != NULL)
-        {
-            fast = fast->next;
-        }
-    }
-    nptr = slow->next;
-    slow->next = NULL;
-    return nptr;
-}
-
-struct classrooms *merge_sort(struct classrooms *list_ptr) // sorts in descending order.
-{
-    struct classrooms *nptr, *lptr;
-    lptr = list_ptr;
-    if ((lptr != NULL) && (lptr->next != NULL))
-    {
-        nptr = divide(lptr);
-        lptr = merge_sort(lptr);
-        nptr = merge_sort(nptr);
-        lptr = merge(lptr, nptr);
-    }
-    return lptr;
-}
-
-struct courses *merge_sort_course(struct courses *list_ptr) // sorts in descending order.
-{
-    struct courses *nptr, *lptr;
-    lptr = list_ptr;
-    if ((lptr != NULL) && (lptr->next != NULL))
-    {
-        nptr = divide_course(lptr);
-        lptr = merge_sort_course(lptr);
-        nptr = merge_sort_course(nptr);
-        lptr = merge_course(lptr, nptr);
-    }
-    return lptr;
-}
-
-void allot_for_lectures(struct classrooms *list_ptr, struct courses **head)
-{
-    // printf("printing initially\n");
-    // printRooms(list_ptr);
-    // printf("printing courses\n");
-    // printall(*head);
-    struct classrooms *lptr = list_ptr;
-    lptr = merge_sort(lptr); // classrooms available in descending order
-    struct courses *mptr = *head;
-
-    if (mptr == NULL)
-    {
-        printf("no courses to allot seats to\n");
-    }
-    else
-    {
-        for (int k = 1; k <= slots_of_course; k++)
-        {
-            mptr = *head;
-            struct courses *nptr = NULL; // linked list of courses of k slot
-            struct courses *qptr = NULL;
-            int flag = 1; // will point to the head of nptr waala ll
-           
-            while (mptr != NULL)
-            {
-                
-                if (mptr->slot == k) // insert at end
-                {
-                    if (nptr == NULL)
-                    {
-                        struct courses *newptr = (struct courses *)malloc(sizeof(struct courses));
-                        newptr->Cnum = mptr->Cnum;
-                        strcpy(newptr->Cname, mptr->Cname);
-                        newptr->slot = mptr->slot;
-                        newptr->NumStudents = mptr->NumStudents;
-                        newptr->lecture_room = -1;
-                        nptr = qptr = newptr;
-                        mptr = mptr->next;
-                    }
-                    else
-                    {
-                        struct courses *newptr = (struct courses *)malloc(sizeof(struct courses));
-                        newptr->Cnum = mptr->Cnum;
-                        strcpy(newptr->Cname, mptr->Cname);
-                        newptr->slot = mptr->slot;
-                        newptr->NumStudents = mptr->NumStudents;
-                        newptr->lecture_room = -1;
-                        nptr->next = newptr;
-                        nptr = nptr->next;
-                        mptr = mptr->next;
-                    }
-                }
-                else
-                {
-                    mptr = mptr->next;
-                }
-            }
-            if (nptr != NULL)
-            {
-                nptr->next = NULL; // code crashes here for k=3
-            }
-
-            if (qptr == NULL)
-            {
-                printf("\n");
-                printf("no courses to allot in %d slot\n", k);
-            }
-            else
-            {
-                qptr = merge_sort_course(qptr); //  sorted linkes list of couses of k slot with respect to maximum numstudents.
-               // printf("printing sorted linked list of courses\n");
-                // printall(qptr);
-                if (qptr == NULL)
-                {
-                    printf("No subjects of this slot\n");
-                }
-                struct classrooms *cptr = lptr;
-                struct courses *temp = qptr;
-                while (qptr != NULL && cptr != NULL)
-                {
-                    if (cptr->capacity < qptr->NumStudents)
-                    {
-                        printf("no of students in this course are more than largest free classroom hence cant allot\n");
-                        flag = 0;
-                        qptr = qptr->next;
-                    }
-                    else
-                    {
-                        //printf("HI \n");
-                        qptr->lecture_room = cptr->roomNum;
-                        cptr = Insert_course_in_classroom(cptr, qptr);
-                        qptr = qptr->next;
-                        cptr = cptr->next;
-                    }
-                }
-                if (cptr == NULL)
-                {
-                    printf("no classrooms available to allot\n");
-                }
-                else if (qptr == NULL)
-                {
-                    // printf("allotment completed\n");
-                    printf("\n");
-                    printf("allotment of courses of slot %d : \n", k);
-                    printf("\n");
-                    while (temp != NULL)
-                    {
-                        printf("course %s of course number %d alloted to roomnumber %d\n", temp->Cname, temp->Cnum, temp->lecture_room); // flag condition to be incorporated.
-                        temp = temp->next;
-                    }
-                }
-            }
-        }
-    }
-    // printf("\n");
-    // printRooms(lptr);
-}
-
-void allot_for_exams(struct classrooms *list_ptr, struct courses **head)
-{
-    struct classrooms *lptr = list_ptr;
-    lptr = merge_sort(lptr); // classrooms available in descending order
-    // printRooms(lptr);
-    int flag = 0, complete = 0, tag = 0, alloted = 0, stu = 1, nostu = 0, remaining = 1, remaining1 = 1,remaining2=1;
-    struct courses *mptr = *head;
-    int b1 = 0, r1 = 0, b2 = 0, r2 = 0, k;
-
-    if (mptr == NULL)
-    {
-        printf("No courses to allot seats to\n");
-    }
-    else
-    {
-        for (k = 1; k <= slots_of_course; k++)
-        {
-
-            stu = 1;
-            // if (k == 5)
-            // {
-            //     printf("k is 5\n");
-            // }
-            // if (k == 6)
-            // {
-            //     printf("k is 6\n");
-            // }
-            // if (k == 7)
-            // {
-            //     printf("k is 7\n");
-            // }
-            mptr = *head;
-            struct courses *nptr = NULL; // linked list of courses of k slots
-            struct courses *qptr = NULL;
-            while (mptr != NULL)
-            {
-                if (mptr->slot == k)
-                {
-                    if (nptr == NULL)
-                    {
-                        struct courses *newptr = (struct courses *)malloc(sizeof(struct courses));
-                        newptr->Cnum = mptr->Cnum;
-                        strcpy(newptr->Cname, mptr->Cname);
-                        newptr->slot = mptr->slot;
-                        newptr->NumStudents = mptr->NumStudents;
-                        newptr->RoomNum = -1;
-                        newptr->headstudent = mptr->headstudent;
-                        nptr = qptr = newptr;
-                        mptr = mptr->next;
-                    }
-                    else
-                    {
-                        struct courses *newptr = (struct courses *)malloc(sizeof(struct courses));
-                        newptr->Cnum = mptr->Cnum;
-                        strcpy(newptr->Cname, mptr->Cname);
-                        newptr->slot = mptr->slot;
-                        newptr->NumStudents = mptr->NumStudents;
-                        newptr->RoomNum = -1;
-                        newptr->headstudent = mptr->headstudent;
-                        nptr->next = newptr;
-                        nptr = nptr->next;
-                        mptr = mptr->next;
-                    }
-                }
-                else
-                {
-                    mptr = mptr->next;
-                }
-            }
-            if (nptr != NULL)
-            {
-                nptr->next = NULL; // code crashes here for k=3
-            }
-
-            if (qptr == NULL)
-            {
-                printf("No courses to allot in %d slot\n", k);
-            }
-            else
-            {
-                qptr = merge_sort_course(qptr); //  sorted linked list of courses of k slot with respect to maximum numstudents.
-                // if(k==6){
-                //     printf("here again\n");
-                // }
-                if (qptr == NULL)
-                {
-                    printf("No subjects of %d slot\n", k);
-                    flag = 1;
-                }
-                struct classrooms *cptr = lptr; // points towards classroom in which seat is being alloted
-                struct courses *temp = qptr;
-                struct courses *ptr1 = NULL, *ptr2 = NULL; // to point towars course being alloted
-                struct student *p1, *hp1, *p2, *hp2;       // to point towars the student being alloted the seat
-                if (flag == 0)
-                {
-                    // if (k == 6)
-                    // {
-                    //     printf("reached for k 6\n");
-                    //     printf("stu value %d",stu);
-                    // }
-                    // end conditions to be checked
-                    if (ptr1 == NULL && ptr2 == NULL)
-                    {
-                        ptr1 = qptr;
-                        ptr2 = qptr->next;
-                        tag = 1;
-                    }
-                    if (ptr1 != NULL && ptr2 == NULL && stu == 1)
-                    {
-                        printf("%s\n", ptr1->Cname);
-                        p1 = hp1 = ptr1->headstudent;
-                        ptr1->RoomNum = cptr->roomNum;
-                        cptr = Insert_course_in_examroom(cptr, ptr1);
-                        int bpr = (cptr->capacity) / 12;
-                        int t = bpr;
-                        int tempCap = cptr->capacity;
-                        b1 = 1;
-                        r1 = 1;
-                        if (p1 == NULL)
-                        {
-                            printf("No students in this course\n");
-                            stu = 0;
-                        }
-                        while (p1 != NULL && tempCap > 0 && remaining == 1)
-                        {
-
-                            // while (p1 != NULL )
-                            // {
-                            printf("Printing seats for slot %d\n", k);
-                            // printf("hellloooooo\n");
-                            while (t > 0 && p1 != NULL && remaining == 1)
-                            {
-                                p1->attribute = 1; // since we r assigning for subject1
-                                p1->roomNum = cptr->roomNum;
-                                p1->BenchNum = b1;
-                                b1++;
-                                p1->RowNum = r1;
-                                t--;
-                                // printf("%d examroom %d benchnumber %d rownumber and %d attribute seat assigned to %s \n", p1->roomNum, p1->BenchNum, p1->RowNum, p1->attribute, p1->name);
-                                printf("%d %s is assigned classroom no. %d with bench no. %d, row no. %d and attirbute %d\n ", p1->En_num, p1->name, p1->roomNum, p1->BenchNum, p1->RowNum, p1->attribute);
-                                tempCap = tempCap - 3;
-                                // printf("p1 printing\n");
-                                p1 = p1->next;
-                                // if (p1 == NULL)
-                                // {
-                                //     printf("NULL");
-                                // }
-                                // if (t == 0)
-                                // {
-                                //     printf("t is 0");
-                                // }
-                                if (t == 0 && r1 < 4 && p1 != NULL)
-                                {
-                                    // printf("entered");
-                                    r1 = r1 + 1;
-                                    t = bpr;
-                                    b1 = 1;
-                                }
-                                else if (r1 >= 4 && p1 != NULL && b1 > bpr)
-                                {
-                                    // printf("%d\n",b1);
-                                    struct student *s1 = p1;
-                                    printf("Remaining Students: \n");
-                                    while (s1 != NULL)
-                                    {
-
-                                        printf("%s    %d\n", s1->name, s1->En_num);
-                                        s1 = s1->next;
-                                        remaining = 0;
-                                    }
-                                }
-                            }
-                            // printf("whats the problem\n");
-                            // }
-                            // printf("bye\n");
-                        }
-                    }
-                    while (ptr2 != NULL && nostu == 0) // latest change
-                    {
-                        // printf("into while\n");
-
-                        if (ptr2 != NULL)
-                        {
-                            if (tag == 0)
-                            {
-                                ptr1 = ptr1->next;
-                                ptr2 = ptr2->next;
-
-                                if (ptr2 == NULL)
-                                {
-                                    printf("Allotment completed for %d slot courses", k);
-                                    printf("\n");
-                                    complete = 1;
-                                }
-                                if (ptr2 != NULL)
-                                {
-                                    // printf("reached till here");
-                                    ptr2 = ptr2->next;
-                                    ptr1 = ptr1->next;
-                                    cptr = cptr->next;
-                                    if (cptr == NULL)
-                                    {
-                                        printf("No classrooms left\n");
-                                        complete = 1;
-                                    }
-                                }
-                            }
-                        }
-                        if (complete == 0)
-                        {
-                            // printf("%s\n",ptr2->Cname);
-                            p1 = hp1 = ptr1->headstudent;
-                            ptr1->RoomNum = cptr->roomNum;
-                            cptr = Insert_course_in_examroom(cptr, ptr1);
-                            if (ptr2 != NULL)
-                            {
-                                // printf("ptr2!=NULL\n");
-                                printf("%s", ptr2->Cname);
-                                p2 = ptr2->headstudent;
-                                // printf("%s\n", p2->name);
-                                alloted = 1;
-                                ptr2->RoomNum = cptr->roomNum;
-
-                                cptr = Insert_course_in_examroom(cptr, ptr2);
-                            }
-                            // a1 = 1;
-                            int bpr = (cptr->capacity) / 12;
-                            int t = bpr;
-                            // printf("\n capacity of classroom : %d\n",cptr->capacity);
-                            // printf("\n%d\n",bpr);
-                            int tempCap = cptr->capacity;
-                            b1 = 1;
-                            r1 = 1;
-                            while (p1 != NULL && tempCap > 0 && remaining1 == 1)
-                            {
-
-                                // while (p1 != NULL)
-                                // {
-
-                                printf("printing seats for slot %d\n", k);
-                                // printf("hii\n");
-                                while (t > 0 && p1 != NULL && remaining1 == 1)
-                                {
-                                    p1->attribute = 1; // since we r assigning for subject1
-                                    p1->roomNum = cptr->roomNum;
-                                    p1->BenchNum = b1;
-                                    b1++;
-                                    p1->RowNum = r1;
-                                    t--;
-                                    // printf("%d examroom %d benchnumber %d rownumber and %d attribute seat assigned to %s \n", p1->roomNum, p1->BenchNum, p1->RowNum, p1->attribute, p1->name);
-                                    printf("%d %s is assigned classroom no. %d with bench no. %d, row no. %d and attirbute %d\n ", p1->En_num, p1->name, p1->roomNum, p1->BenchNum, p1->RowNum, p1->attribute);
-                                    tempCap = tempCap - 3;
-                                    // printf("p1 printing\n");
-                                    p1 = p1->next;
-                                    // if (p1 == NULL)
-                                    // {
-                                    //     printf("NULL");
-                                    // }
-                                    // if (t == 0)
-                                    // {
-                                    //     printf("t is 0");
-                                    // }
-                                    if (t == 0 && r1 < 4 && p1 != NULL)
-                                    {
-                                        // printf("entered");
-                                        r1 = r1 + 1;
-                                        t = bpr;
-                                        b1 = 1;
-                                    }
-                                    else if (r1 >= 4 && p1 != NULL && b1 > bpr)
-                                    {
-                                        // printf("%d\n",b1);
-                                        struct student *s1 = p1;
-                                        printf("Remaining Students: \n");
-                                        while (s1 != NULL)
-                                        {
-
-                                            printf("%s    %d\n", s1->name, s1->En_num);
-                                            s1 = s1->next;
-                                            remaining1 = 0;
-                                        }
-                                    }
-                                }
-                                // printf("whats the problem\n");
-                                // }
-                                // printf("bye\n");
-                            }
-                            // printf("excuse me\n");
-                            b2 = 1, r2 = 1;
-                            tempCap = cptr->capacity;
-                            t = bpr;
-                            if (p2 == NULL && ptr2 != NULL)
-                            {
-                                printf("No students in %s to allot seats to\n", ptr2->Cname);
-                                nostu = 1;
-                            }
-                            while (tempCap > 0 && p2 != NULL && alloted == 1 && remaining2==1)
-                            {
-                                // printf("hi");
-
-                                while (p2 != NULL && remaining2==1)
-                                {
-                                
-                                    
-                                        
-                                    
-                                    // printf("hello");
-                                    while (t > 0 && p2 != NULL && remaining2==1)
-                                    {
-                                        
-                                        p2->attribute = 2; // since we r assigning for subject2
-                                        p2->roomNum = cptr->roomNum;
-                                        p2->BenchNum = b2;
-                                        b2++;
-                                        p2->RowNum = r2;
-                                        printf("%d %s is assigned classroom no. %d with bench no. %d, row no. %d and attirbute %d\n ", p2->En_num, p2->name, p2->roomNum, p2->BenchNum, p2->RowNum, p2->attribute);
-                                        // printf("%d examroom %d benchnumber %d rownumber and %d attribute seat assigned to %s\n ", p2->roomNum, p2->BenchNum, p2->RowNum, p2->attribute, p2->name);
-                                        t--;
-                                        // printf("p2 printing\n");
-                                        tag = 0;
-                                        tempCap = tempCap - 3;
-                                        p2 = p2->next;
-                                        if (t == 0 && r2 < 4 && p2 != NULL)
-                                        {
-                                            r2 = r2 + 1;
-                                            t = bpr;
-                                            b2 = 1;
-                                        }
-                                        else if (r2>=4 && p2 != NULL && b2>bpr) // remaining children to be placed
-                                        {
-                                            struct student *s2 = p2;
-                                            printf("Remaining Students: \n");
-                                            while (s2 != NULL)
-                                            {
-
-                                                printf("%s    %d\n", s2->name, s2->En_num);
-                                                s2 = s2->next;
-                                                remaining2=0;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            // printf("i am here\n");
-                            // if (ptr2 != NULL)
-                            // {
-                            //     printf("i am not null\n");
-                            // }
-
-                            if (tempCap == 0)
-                            {
-                                if (p1 != NULL) // remaining children to be placed
-                                {
-                                    struct student *s1 = p1->next;
-                                    printf("Remaining Students: \n");
-                                    while (s1 != NULL)
-                                    {
-
-                                        printf("%s    %d\n", s1->name, s1->En_num);
-                                        s1 = s1->next;
-                                    }
-                                }
-                                if (p2 != NULL) // remaining children to be placed
-                                {
-                                    struct student *s2 = p2->next;
-                                    printf("Remaining Students: \n");
-                                    while (s2 != NULL)
-                                    {
-
-                                        printf("%s    %d\n", s2->name, s2->En_num);
-                                        s2 = s2->next;
-                                    }
-                                }
-                            }
+                            break;
                         }
                     }
                 }
             }
+
+            if (min_num_courses_without_room == 0 || min_total_students_without_room == 0)
+            {
+                break; 
+            }
+        }
+
+        if (min_num_courses_without_room > 0 || min_total_students_without_room > 0)
+        {
+            printf("Unable to allocate room for some courses in Slot %d with minimum number of courses without a room = %d and minimum total number of students without a room = %d\n", slot, min_num_courses_without_room, min_total_students_without_room);
         }
     }
 }
 
+void allot_classrooms_for_exams()
+{
+    int slot = 1;
+    
+    int num_courses_with_slot = 0;
+    Course *courses_with_slot[num_courses];
+    for (int i = 0; i < num_courses; i++)
+    {
+        if (courses[i].slot == slot)
+        {
+            courses_with_slot[num_courses_with_slot] = &courses[i];
+            num_courses_with_slot++;
+        }
+    }
+
+    for (int i = 0; i < num_courses_with_slot; i++)
+    {
+        Course *course = courses_with_slot[i];
+        int num_students = count_students_in_course(course->name);
+        if (num_students == 0)
+        {
+            printf("No students enrolled in course %s\n", course->name);
+            continue;
+        }
+        int num_rows = 4;
+        int benches_per_row = (int)ceil((float)num_students / (SEATS_PER_BENCH * num_rows));
+        int total_benches = benches_per_row * num_rows;
+
+        classroom *room = NULL;
+        for (int j = 0; j < sizeof(classrooms) / sizeof(classroom); j++)
+        {
+            if (classrooms[j].capacity >= total_benches)
+            {
+                room = &classrooms[j];
+                break;
+            }
+        }
+        if (room == NULL)
+        {
+            printf("Error: No classroom available for course %s with %d students\n", course->name, num_students);
+            continue;
+        }
+
+        printf("Assigning seats for course %s in room %s:\n", course->name, room->room_number);
+
+        int assigned_students = 0;
+        Student *current_student = student_list;
+         int count =1;
+        while (current_student != NULL && assigned_students < num_students)
+        {   
+            for (int j = 0; j < 5; j++)
+
+            {
+                   
+                if (strcmp(current_student->courses[j], course->name) == 0)
+                {
+                    int row = (assigned_students / (SEATS_PER_BENCH * benches_per_row)) + 1;
+                    int bench = ((assigned_students % (SEATS_PER_BENCH * benches_per_row)) / SEATS_PER_BENCH) + 1;
+                    int seat = (assigned_students % SEATS_PER_BENCH) + 1;
+                    printf("%s  %s : Room %s, Row %d, Col %d, SEAT_N0- %d\n", current_student->name,current_student->enrollment_number, room->room_number, row, seat, count++);
+                    assigned_students++;
+                    break;
+                }
+            }
+            current_student = current_student->next;
+        }
+
+        room->capacity -= total_benches;
+    }
+}
 int main()
-{
-    int q;
-    printf("Enter 1 if you wish to add a student to the student list \n");
-    printf("Enter 2 if you wish to delete a student from the student list \n");
-    printf("Enter 3 if you wish to add course to the course list \n");
-    printf("Enter 4 if you wish to delete a course from the course list \n");
-    printf("Enter 5 if you wish to allot classrooms for lectures \n");
-    printf("Enter 6 if you wish to allot the exam seats to the students and print the student list \n");
-
-    scanf("%d", &q);
-
-    struct courses *first_course = NULL;
-    struct student *head = NULL;
-    struct classrooms *head_class = NULL;
-
-    FILE *fptr;
-    char line[100];
-     
-    FILE *course;
-    char *Cname;
-    int Cnum,slot;
-    char Cline[100];
-
-    FILE *stu;
-    int c[5],c1,c2,c3,c4,c5,EnNum;
-    char *Sname;
-    char Sline[100];
-
-    FILE *class;
-    int bpr,roomNum;
-    char Rline[100];
-
-    switch (q)
+{     
+    int choice;
+    do
     {
-    case 1:
-
-
-        course = fopen("courses.txt","r");
-        while(fgets(Cline,100,course)!=NULL)
+        printf("\n1. Add student\n2. Delete Student\n3. Add Course\n4. Delete Course\n5. Print Student List\n6. Print Course List\n7. Allot Classroom\n8. Allot Classroom For Exams\n8. Exit\n");
+        printf("Enter choice: ");
+        scanf("%d", &choice);
+        switch (choice)
         {
-            Cname = (char *)malloc(50*sizeof(char));
-            sscanf(Cline,"%s %d %d",Cname,&Cnum,&slot);
-            addcourse(&first_course,Cname,Cnum,slot);
+        case 1:
+            add_student();
+            add_student_to_txt();
+            break;
+        case 2:
+            delete_student();
+            add_student_to_txt();
+            break;
+        case 3:
+            add_course();
+            break;
+        case 4:
+            delete_course();
+            break;
+        case 5:
+            print_student_list();
+            break;
+        case 6:
+            print_course_list();
+            break;
+        case 7:
+            allot_classrooms();
+            break;
+        case 8:
+            allot_classrooms_for_exams();
+            break;
+        case 9:
+            printf("Exiting...\n");
+            break;
+        default:
+            printf("Invalid choice. Please try again.\n");
         }
-        fclose(course);
-
-        stu = fopen("students.txt", "r");
-        while (fgets(Sline, 100, stu) != NULL)
-        {
-            Sname = (char *)malloc(50 * sizeof(char));
-            sscanf(Sline, "%s %d %d %d %d %d %d ", Sname, &EnNum, &c1, &c2, &c3, &c4, &c5);
-            c[0] = c1;
-            c[1] = c2;
-            c[2] = c3;
-            c[3] = c4;
-            c[4] = c5;
-            head = insertS(head, Sname, EnNum, c, &first_course);
-        }
-        fclose(stu);
-
-        printall(first_course);
-
-        printStudentList(head);
-        break;
-
-    case 2:
-
-        course = fopen("courses.txt","r");
-        while(fgets(Cline,100,course)!=NULL)
-        {
-            Cname = (char *)malloc(50*sizeof(char));
-            sscanf(Cline,"%s %d %d",Cname,&Cnum,&slot);
-            addcourse(&first_course,Cname,Cnum,slot);
-        }
-        fclose(course);
-
-        stu = fopen("students.txt", "r");
-        while (fgets(Sline, 100, stu) != NULL)
-        {
-            Sname = (char *)malloc(50 * sizeof(char));
-            sscanf(Sline, "%s %d %d %d %d %d %d ", Sname, &EnNum, &c1, &c2, &c3, &c4, &c5);
-            c[0] = c1;
-            c[1] = c2;
-            c[2] = c3;
-            c[3] = c4;
-            c[4] = c5;
-            head = insertS(head, Sname, EnNum, c, &first_course);
-        }
-        fclose(stu);
-
-        // printall(first_course);
-        printStudentList(head);
-        fptr = fopen("question2.txt", "r");
-        while (fgets(line, 100, fptr) != NULL)
-        {
-            sscanf(line, "%d", &EnNum);
-            head = deleteS(head, EnNum, &first_course);
-        }
-        printStudentList(head);
-        fclose(fptr);
-
-        // printall(first_course);
-
-        break;
-
-    case 3:
-
-        course = fopen("courses.txt","r");
-        while(fgets(Cline,100,course)!=NULL)
-        {
-            Cname = (char *)malloc(50*sizeof(char));
-            sscanf(Cline,"%s %d %d",Cname,&Cnum,&slot);
-            addcourse(&first_course,Cname,Cnum,slot);
-        }
-        fclose(course);
-
-        printall(first_course);
-        break;
-
-    case 4:
-
-        course = fopen("courses.txt","r");
-        while(fgets(Cline,100,course)!=NULL)
-        {
-            Cname = (char *)malloc(50*sizeof(char));
-            sscanf(Cline,"%s %d %d",Cname,&Cnum,&slot);
-            addcourse(&first_course,Cname,Cnum,slot);
-        }
-        fclose(course);
-
-        fptr = fopen("question4.txt", "r");
-        while (fgets(line, 100, fptr) != NULL)
-        {
-            sscanf(line, "%d", &Cnum);
-            first_course = deleteCourse(first_course, Cnum);
-        }
-        fclose(fptr);
-
-        printall(first_course);
-        break;
-
-    case 5:
-
-        course = fopen("courses.txt","r");
-        while(fgets(Cline,100,course)!=NULL)
-        {
-            Cname = (char *)malloc(50*sizeof(char));
-            sscanf(Cline,"%s %d %d",Cname,&Cnum,&slot);
-            addcourse(&first_course,Cname,Cnum,slot);
-        }
-        fclose(course);
-
-        stu = fopen("students.txt", "r");
-        while (fgets(Sline, 100, stu) != NULL)
-        {
-            Sname = (char *)malloc(50 * sizeof(char));
-            sscanf(Sline, "%s %d %d %d %d %d %d ", Sname, &EnNum, &c1, &c2, &c3, &c4, &c5);
-            c[0] = c1;
-            c[1] = c2;
-            c[2] = c3;
-            c[3] = c4;
-            c[4] = c5;
-            head = insertS(head, Sname, EnNum, c, &first_course);
-        }
-        fclose(stu);
-
-        class = fopen("classrooms.txt","r");
-        while (fgets(Rline, 100, class) != NULL)
-        {
-            sscanf(Rline, "%d %d", &roomNum, &bpr);
-            addClassroom(&head_class,roomNum,bpr);
-        }
-        fclose(class);
-
-        allot_for_lectures(head_class,&first_course);
-        printf("\n");
-        printRooms(head_class);
-
-        break;    
-
-    case 6:
-
-        course = fopen("courses.txt","r");
-        while(fgets(Cline,100,course)!=NULL)
-        {
-            Cname = (char *)malloc(50*sizeof(char));
-            sscanf(Cline,"%s %d %d",Cname,&Cnum,&slot);
-            addcourse(&first_course,Cname,Cnum,slot);
-        }
-        fclose(course);
-
-        stu = fopen("students.txt", "r");
-        while (fgets(Sline, 100, stu) != NULL)
-        {
-            Sname = (char *)malloc(50 * sizeof(char));
-            sscanf(Sline, "%s %d %d %d %d %d %d ", Sname, &EnNum, &c1, &c2, &c3, &c4, &c5);
-            c[0] = c1;
-            c[1] = c2;
-            c[2] = c3;
-            c[3] = c4;
-            c[4] = c5;
-            head = insertS(head, Sname, EnNum, c, &first_course);
-        }
-        fclose(stu);
-
-
-        class = fopen("classrooms.txt", "r");
-        while (fgets(line, 100, class) != NULL)
-        {
-            sscanf(line, "%d %d", &roomNum, &bpr);
-            addClassroom(&head_class,roomNum,bpr);
-        }
-        fclose(class);
-        
-        allot_for_exams(head_class,&first_course);
-        printRooms(head_class);
-
-        break;
-    }
-
+    } while (choice != 9);
     return 0;
 }
